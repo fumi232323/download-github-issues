@@ -34,8 +34,10 @@ COMMENT_TEMPLATE = '''***
 
 '''
 
-# GitHub get issues point
+# GitHub list issues for a repository endpoint
+# see: https://developer.github.com/v3/issues/#list-issues-for-a-repository
 GITHUB_ISSUE_URL = 'https://api.github.com/repos/{repo_owner}/{repo_name}/issues'
+# directory name to output issues
 OUTPUT_DIR = settings.PROJECT_PATH / settings.ISSUES_PATH
 # File name to output issue
 OUTPUT_FILENAME = '{issue_number}_{issue_title}.md'
@@ -115,7 +117,8 @@ def main(repo_owner: str, repo_name: str, state: str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='You can download Github issues including comments at once and output to markdown files.',
+        description='You can download GitHub issues for a repository including comments at once '
+                    'and output to markdown files.',
     )
 
     parser.add_argument(
@@ -133,7 +136,7 @@ if __name__ == '__main__':
         type=str,
         default='all',
         choices=['open', 'closed', 'all'],
-        help='You can also specify the state of the issue if you like.'
+        help='You can also specify the state of the issue if you like. The default is all.'
     )
 
     args = parser.parse_args()
