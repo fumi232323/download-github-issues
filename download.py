@@ -78,6 +78,8 @@ def generate_formatted_comments(url: str) -> str:
 
 def generate_formatted_issue(url: str, params: Dict[str, str] = None) -> str:
     for issue in download(url, params):
+        if issue.get('pull_request'):
+            continue
         text = ISSUE_TEMPLATE.format(
             number=issue['number'],
             title=issue['title'],
