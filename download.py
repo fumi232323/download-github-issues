@@ -1,6 +1,7 @@
 import argparse
 import logging
-from typing import List, Dict, Any
+import os
+from typing import Dict, Any
 
 import requests
 
@@ -45,7 +46,7 @@ OUTPUT_FILENAME = '{issue_number}_{issue_title}.md'
 
 def download(
         target_url: str, params: Dict[str, str] = None
-) -> List[Dict[str, Any]]:
+) -> requests.models.Response:
     r = requests.get(
         target_url,
         params=params,
@@ -53,7 +54,7 @@ def download(
     )
     r.raise_for_status()
 
-    return r.json()
+    return r
 
 
 def generate_filename(issue: Dict[str, Any]) -> str:
@@ -63,9 +64,18 @@ def generate_filename(issue: Dict[str, Any]) -> str:
     )
 
 
+def get_next_url(r: requests.models.Response) -> str:
+    next_url = ""
+    if r.links.get('next'):
+        next_url = r.links['next']['url']
+
+    return next_url
+
+
 def generate_formatted_comments(url: str) -> str:
     comments = ""
-    for comment in download(url):
+    r = download(url)
+    for comment in r.json():
         comments += COMMENT_TEMPLATE.format(
             user=comment['user']['login'],
             created_at=comment['created_at'],
@@ -76,11 +86,8 @@ def generate_formatted_comments(url: str) -> str:
     return comments
 
 
-def generate_formatted_issue(url: str, params: Dict[str, str] = None) -> str:
-    for issue in download(url, params):
-        if issue.get('pull_request'):
-            continue
-        text = ISSUE_TEMPLATE.format(
+def generate_formatted_issue(issue: Dict[str, Any]) -> str:
+    return ISSUE_TEMPLATE.format(
             number=issue['number'],
             title=issue['title'],
             html_url=issue['html_url'],
@@ -91,11 +98,20 @@ def generate_formatted_issue(url: str, params: Dict[str, str] = None) -> str:
             body=issue['body'],
             comments=generate_formatted_comments(issue['comments_url']),
         )
-        filename = OUTPUT_FILENAME.format(
-            issue_number=issue['number'],
-            issue_title=issue['title'].strip().replace('/', '-'),
-        )
-        yield text, filename
+
+
+def fetch_issues(url: str, params: Dict[str, str] = None) -> str:
+    r = download(url, params)
+
+    for issue in r.json():
+        if issue.get('pull_request'):
+            continue
+        text = generate_formatted_issue(issue)
+        filename = generate_filename(issue)
+        with open(OUTPUT_DIR / filename, 'w', encoding="utf-8") as f:
+            f.write(text)
+
+    return get_next_url(r)
 
 
 def main(repo_owner: str, repo_name: str, state: str):
@@ -104,17 +120,13 @@ def main(repo_owner: str, repo_name: str, state: str):
         * 画像を取って来たい
         * template をどうにかしたいような...
     """
-    issue_url = GITHUB_ISSUE_URL.format(
-        repo_owner=repo_owner,
-        repo_name=repo_name,
-    )
+    issue_url = GITHUB_ISSUE_URL.format(repo_owner=repo_owner, repo_name=repo_name)
     params = {'state': state}
-
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    for text, filename in generate_formatted_issue(issue_url, params):
-        with open(OUTPUT_DIR / filename, 'w', encoding="utf-8") as f:
-            f.write(text)
+    while True:
+        issue_url = fetch_issues(issue_url, params)
+        if not issue_url:
+            break
 
 
 if __name__ == '__main__':
