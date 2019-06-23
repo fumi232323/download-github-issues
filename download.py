@@ -1,6 +1,6 @@
 import argparse
 import logging
-from typing import Dict, Any
+from typing import List, Dict, Any
 
 import requests
 
@@ -71,18 +71,17 @@ def get_next_url(r: requests.models.Response) -> str:
     return next_url
 
 
-def generate_formatted_comments(url: str) -> str:
-    comments = ""
-    r = download(url)
-    for comment in r.json():
-        comments += COMMENT_TEMPLATE.format(
+def generate_formatted_comments(comments: List[Dict[str, Any]]) -> str:
+    comments_text = ""
+    for comment in comments:
+        comments_text += COMMENT_TEMPLATE.format(
             user=comment['user']['login'],
             created_at=comment['created_at'],
             html_url=comment['html_url'],
             body=comment['body'],
         )
 
-    return comments
+    return comments_text
 
 
 def generate_formatted_issue(issue: Dict[str, Any]) -> str:
@@ -95,7 +94,9 @@ def generate_formatted_issue(issue: Dict[str, Any]) -> str:
             author=issue['user']['login'],
             closed_at=issue['closed_at'] or '-',
             body=issue['body'],
-            comments=generate_formatted_comments(issue['comments_url']),
+            comments=generate_formatted_comments(
+                download(issue['comments_url']).json()
+            ),
         )
 
 
