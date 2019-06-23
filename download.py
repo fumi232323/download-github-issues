@@ -118,6 +118,7 @@ def main(repo_owner: str, repo_name: str, state: str):
     TODO:
         * 画像を取って来たい
         * template をどうにかしたいような...
+        * log をつける
     """
     issue_url = GITHUB_ISSUE_URL.format(repo_owner=repo_owner, repo_name=repo_name)
     params = {'state': state}

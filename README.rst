@@ -1,9 +1,8 @@
 Download GitHub Issues
 =======================
-Download GitHub issues for a repository including comments at once and output to markdown files.
+Download issues (including comments attached to each issue) from the specified GitHub repository and output them as Markdown format files.
 
-ある特定の GitHub repository の issues (comments も含む) を一括ダウンロードして、 Markdown 形式のファイルに出力します。
-
+指定した GitHub repository から issues (各 issue に紐づく comments も含む) をダウンロードして、 Markdown 形式のファイルに出力します。
 
 Requirements
 -------------
