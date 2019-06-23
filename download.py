@@ -134,9 +134,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--state',
         type=str,
-        default='all',
+        default='open',
         choices=['open', 'closed', 'all'],
-        help='You can also specify the state of the issue if you like. The default is all.'
+        help='You can also specify the state of the issue if you like. The default is open.'
     )
 
     args = parser.parse_args()
