@@ -44,11 +44,6 @@ OUTPUT_FILENAME = '{issue_number}_{issue_title}.md'
 def download(
         target_url: str, params: Dict[str, str] = None
 ) -> List[Dict[str, Any]]:
-    """
-
-    :param target_url:
-    :return:
-    """
     r = requests.get(
         target_url,
         params=params,
@@ -60,11 +55,6 @@ def download(
 
 
 def generate_filename(issue: Dict[str, Any]) -> str:
-    """
-
-    :param issue:
-    :return:
-    """
     return OUTPUT_FILENAME.format(
         issue_number=issue['number'],
         issue_title=issue['title'].strip().replace('/', '-'),
@@ -72,11 +62,6 @@ def generate_filename(issue: Dict[str, Any]) -> str:
 
 
 def generate_formatted_comments(url: str) -> str:
-    """
-
-    :param url:
-    :return:
-    """
     comments = ""
     for comment in download(url):
         comments += COMMENT_TEMPLATE.format(
@@ -90,12 +75,6 @@ def generate_formatted_comments(url: str) -> str:
 
 
 def generate_formatted_issue(url: str, params: Dict[str, str] = None) -> str:
-    """
-
-    :param url:
-    :param params:
-    :return:
-    """
     for issue in download(url, params):
         text = ISSUE_TEMPLATE.format(
             number=issue['number'],
@@ -119,9 +98,7 @@ def main(repo_owner: str, repo_name: str, state: str):
     """
     TODO:
         * 画像を取って来たい
-        * README を書く
         * template をどうにかしたいような...
-        * DocString 書く
     """
     issue_url = GITHUB_ISSUE_URL.format(
         repo_owner=repo_owner,
