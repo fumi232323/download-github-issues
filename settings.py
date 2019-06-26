@@ -13,6 +13,7 @@ load_dotenv(dotenv_path=env_path, verbose=True)
 
 # Downloaded issues directory
 ISSUES_PATH = 'issues'
+IMAGES_PATH = 'images'
 
 # GitHub authentication ############
 GITHUB_USER = os.getenv('GITHUB_USER', '')
