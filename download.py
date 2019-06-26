@@ -63,14 +63,6 @@ def generate_filename(issue: Dict[str, Any]) -> str:
     )
 
 
-def get_next_url(r: requests.models.Response) -> str:
-    next_url = ""
-    if r.links.get('next'):
-        next_url = r.links['next']['url']
-
-    return next_url
-
-
 def generate_formatted_comments(comments: List[Dict[str, Any]]) -> str:
     comments_text = ""
     for comment in comments:
@@ -98,7 +90,11 @@ def generate_formatted_issue(issue: Dict[str, Any]) -> str:
                 download(issue['comments_url']).json()
             ),
         )
+def get_next_url(r: requests.models.Response) -> str:
+    if r.links.get('next'):
+        return r.links['next']['url']
 
+    return ""
 
 
 def fetch_issues(url: str, params: Dict[str, str] = None) -> Tuple[str, int]:
