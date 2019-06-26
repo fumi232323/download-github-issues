@@ -64,20 +64,20 @@ def generate_filename(issue: Dict[str, Any]) -> str:
 
 
 def generate_formatted_comments(comments: List[Dict[str, Any]]) -> str:
-    comments_text = ""
+    formatted = ""
     for comment in comments:
-        comments_text += COMMENT_TEMPLATE.format(
+        formatted += COMMENT_TEMPLATE.format(
             user=comment['user']['login'],
             created_at=comment['created_at'],
             html_url=comment['html_url'],
             body=comment['body'],
         )
 
-    return comments_text
+    return formatted
 
 
 def generate_formatted_issue(issue: Dict[str, Any]) -> str:
-    return ISSUE_TEMPLATE.format(
+    formatted = ISSUE_TEMPLATE.format(
             number=issue['number'],
             title=issue['title'],
             html_url=issue['html_url'],
@@ -90,6 +90,9 @@ def generate_formatted_issue(issue: Dict[str, Any]) -> str:
                 download(issue['comments_url']).json()
             ),
         )
+    return formatted
+
+
 def get_next_url(r: requests.models.Response) -> str:
     if r.links.get('next'):
         return r.links['next']['url']
