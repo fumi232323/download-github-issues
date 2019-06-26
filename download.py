@@ -121,13 +121,19 @@ def main(repo_owner: str, repo_name: str, state: str):
         * template をどうにかしたいような...
         * log をつける
     """
+    logger.info("Start downloading Issues. repo_owner: '%s', repo_name: '%s', state: '%s'.", repo_owner, repo_name, state)
+
     issue_url = GITHUB_ISSUE_URL.format(repo_owner=repo_owner, repo_name=repo_name)
     params = {'state': state}
+    total = 0
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    while True:
-        issue_url = fetch_issues(issue_url, params)
-        if not issue_url:
-            break
+
+    while issue_url:
+        issue_url, fetched_count = fetch_issues(issue_url, params)
+        total += fetched_count
+        logger.info("%s issues were downloaded.", total)
+
+    logger.info("Download of Issues complete. %s issues have been downloaded.", total)
 
 
 if __name__ == '__main__':
