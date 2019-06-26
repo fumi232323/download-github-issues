@@ -39,6 +39,7 @@ COMMENT_TEMPLATE = '''***
 GITHUB_ISSUE_URL = 'https://api.github.com/repos/{repo_owner}/{repo_name}/issues'
 # directory name to output issues
 OUTPUT_DIR = settings.PROJECT_PATH / settings.ISSUES_PATH
+OUTPUT_IMAGE_DIR = OUTPUT_DIR / settings.IMAGES_PATH
 # File name to output issue
 OUTPUT_FILENAME = '{issue_number}_{issue_title}.md'
 
@@ -72,6 +73,7 @@ def generate_formatted_comments(comments: List[Dict[str, Any]]) -> str:
             html_url=comment['html_url'],
             body=comment['body'],
         )
+        download_images(comment['id'], comment['body'])
 
     return formatted
 
@@ -90,6 +92,8 @@ def generate_formatted_issue(issue: Dict[str, Any]) -> str:
                 download(issue['comments_url']).json()
             ),
         )
+    download_images(issue['id'], issue['body'])
+
     return formatted
 
 
@@ -119,6 +123,34 @@ def fetch_issues(url: str, params: Dict[str, str] = None) -> Tuple[str, int]:
         count += 1
 
     return get_next_url(r), count
+
+
+def download_images(id: int, body_str: str):
+    # * 画像を取って来たい
+    # * body 中に [image](url) あったらDLするみたいな
+    from PIL import Image
+    from io import BytesIO
+    import re
+    from pathlib import PurePath
+    import time
+
+    pattern = r"!\[image\]\((https://user-images.githubusercontent.com/[\w\-\./]+)\)"
+
+    m = re.findall(pattern, body_str)  # type: List[str]
+
+    for image_url in m:
+        # 画像をダウンロードする
+        r = download(image_url)
+        # image に変換
+        image = Image.open(BytesIO(r.content))
+        # 出力先ファイルパスを取得するよ
+        filepath = OUTPUT_IMAGE_DIR / str(id) / PurePath(image_url).name
+        if filepath.exists():
+            continue
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        # ローカルに保存する
+        image.save(filepath)
+        time.sleep(1.0)
 
 
 def main(repo_owner: str, repo_name: str, state: str):
