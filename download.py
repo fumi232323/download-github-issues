@@ -1,6 +1,6 @@
 import argparse
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Tuple, Any
 
 import requests
 
@@ -100,18 +100,26 @@ def generate_formatted_issue(issue: Dict[str, Any]) -> str:
         )
 
 
-def fetch_issues(url: str, params: Dict[str, str] = None) -> str:
+
+def fetch_issues(url: str, params: Dict[str, str] = None) -> Tuple[str, int]:
     r = download(url, params)
+    count = 0
 
     for issue in r.json():
         if issue.get('pull_request'):
+            logger.info("Skip pull request #%s.", issue['number'])
             continue
+
+        logger.info("Downloading issue #%s.", issue['number'])
+
         text = generate_formatted_issue(issue)
         filename = generate_filename(issue)
         with open(OUTPUT_DIR / filename, 'w', encoding="utf-8") as f:
             f.write(text)
 
-    return get_next_url(r)
+        count += 1
+
+    return get_next_url(r), count
 
 
 def main(repo_owner: str, repo_name: str, state: str):
