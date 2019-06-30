@@ -8,34 +8,10 @@ from typing import List, Dict, Tuple, Any
 import requests
 
 import settings
+import templates
 
 logger = logging.getLogger(__name__)
 
-# Template: Issue
-ISSUE_TEMPLATE = '''# #{number} {title}
-
-* issue_url: {html_url}
-* state: {state}
-* created_at: {author} opened this issue at {created_at}
-* closed_at: {closed_at}
-
-***
-{author} commented at {created_at}
-***
-{body}
-
-{comments}
-'''
-
-# Template: Comment
-COMMENT_TEMPLATE = '''***
-{user} commented at {created_at}
-({html_url})
-***
-
-{body}
-
-'''
 
 # GitHub list issues for a repository endpoint
 # see: https://developer.github.com/v3/issues/#list-issues-for-a-repository
@@ -73,7 +49,7 @@ def format_comments(comments: List[Dict[str, Any]]) -> Tuple[str, Dict[str, List
     contents_urls = defaultdict()
 
     for comment in comments:
-        formatted += COMMENT_TEMPLATE.format(
+        formatted += templates.COMMENT.format(
             user=comment['user']['login'],
             created_at=comment['created_at'],
             html_url=comment['html_url'],
@@ -86,7 +62,7 @@ def format_comments(comments: List[Dict[str, Any]]) -> Tuple[str, Dict[str, List
 
 
 def format_issue(issue: Dict[str, Any], comments: str) -> str:
-    return ISSUE_TEMPLATE.format(
+    return templates.ISSUE.format(
             number=issue['number'],
             title=issue['title'],
             html_url=issue['html_url'],
@@ -184,7 +160,6 @@ def main(repo_owner: str, repo_name: str, state: str):
     """
     TODO:
         * 画像も取得する、はオプションにしよう....
-        * template をどうにかしたいような...
     """
     logger.info(
         "Start downloading issues. repo_owner: '%s', repo_name: '%s', state: '%s'.",
