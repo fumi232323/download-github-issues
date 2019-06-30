@@ -156,14 +156,10 @@ def get_next_url(res: requests.models.Response) -> str:
     return ""
 
 
-def main(repo_owner: str, repo_name: str, state: str):
-    """
-    TODO:
-        * 画像も取得する、はオプションにしよう....
-    """
+def main(repo_owner: str, repo_name: str, state: str, contents: bool):
     logger.info(
-        "Start downloading issues. repo_owner: '%s', repo_name: '%s', state: '%s'.",
-        repo_owner, repo_name, state
+        "Start downloading issues. repo_owner: '%s', repo_name: '%s', state: '%s', contents: '%s'.",
+        repo_owner, repo_name, state, contents
     )
 
     issue_url = ISSUE_URL.format(repo_owner=repo_owner, repo_name=repo_name)
@@ -178,7 +174,8 @@ def main(repo_owner: str, repo_name: str, state: str):
         res = download(issue_url, params)
         issues, content_urls = serialize(res.json())
         output(issues)
-        download_contents(content_urls)
+        if contents:
+            download_contents(content_urls)
         issue_url = get_next_url(res)
         total += len(issues)
 
@@ -208,6 +205,11 @@ if __name__ == '__main__':
         choices=['open', 'closed', 'all'],
         help='You can also specify the state of the issue if you like. The default is open.'
     )
+    parser.add_argument(
+        '-c', '--contents',
+        action='store_true',
+        help="Specify this option if you also need to download images and attachments."
+    )
 
     args = parser.parse_args()
     logger.debug("args: '%s'", args)
@@ -216,4 +218,5 @@ if __name__ == '__main__':
         repo_owner=args.repo_owner,
         repo_name=args.repo_name,
         state=args.state,
+        contents=args.contents,
     )
