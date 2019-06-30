@@ -131,7 +131,7 @@ def download_contents(content_urls: Dict[str, List[str]]):
     for content_id, urls in content_urls.items():
         for url in urls:
             logger.info("Downloading contents of issue #%s", content_id)
-            filepath = settings.CONTENTS_DIR / str(content_id) / PurePath(url).name
+            filepath = settings.CONTENTS_DIR / content_id / PurePath(url).name
             if filepath.exists():
                 continue
 
