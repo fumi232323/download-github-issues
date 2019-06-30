@@ -12,8 +12,8 @@ env_path = PROJECT_PATH / '.env'
 load_dotenv(dotenv_path=env_path, verbose=True)
 
 # Downloaded issues directory
-ISSUES_PATH = 'issues'
-IMAGES_PATH = 'images'
+ISSUES_DIR = PROJECT_PATH / 'issues'
+CONTENTS_DIR = ISSUES_DIR / 'images'
 
 # GitHub authentication ############
 GITHUB_USER = os.getenv('GITHUB_USER', '')
@@ -36,7 +36,7 @@ dictConfig({
     },
     'handlers': {
         'console': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },

@@ -1,5 +1,8 @@
 import argparse
 import logging
+import re
+from collections import defaultdict
+from pathlib import PurePath
 from typing import List, Dict, Tuple, Any
 
 import requests
@@ -36,25 +39,26 @@ COMMENT_TEMPLATE = '''***
 
 # GitHub list issues for a repository endpoint
 # see: https://developer.github.com/v3/issues/#list-issues-for-a-repository
-GITHUB_ISSUE_URL = 'https://api.github.com/repos/{repo_owner}/{repo_name}/issues'
-# directory name to output issues
-OUTPUT_DIR = settings.PROJECT_PATH / settings.ISSUES_PATH
-OUTPUT_IMAGE_DIR = OUTPUT_DIR / settings.IMAGES_PATH
+ISSUE_URL = 'https://api.github.com/repos/{repo_owner}/{repo_name}/issues'
+IMAGE_URL_REGEX = r"!\[.*?\]\((https://user-images.githubusercontent.com/[\w\-\./]+)\)"
+ATTACHMENTS_URL_REGEX = r"\[.*?\]\((https://github.com/{repo_owner}/{repo_name}/files/[\w\-\./]+)\)"
+
 # File name to output issue
 OUTPUT_FILENAME = '{issue_number}_{issue_title}.md'
+attachments_regex = ""
 
 
 def download(
         target_url: str, params: Dict[str, str] = None
 ) -> requests.models.Response:
-    r = requests.get(
+    res = requests.get(
         target_url,
         params=params,
         auth=(settings.GITHUB_USER, settings.GITHUB_PASSWORD)
     )
-    r.raise_for_status()
+    res.raise_for_status()
 
-    return r
+    return res
 
 
 def generate_filename(issue: Dict[str, Any]) -> str:
@@ -64,8 +68,10 @@ def generate_filename(issue: Dict[str, Any]) -> str:
     )
 
 
-def generate_formatted_comments(comments: List[Dict[str, Any]]) -> str:
+def format_comments(comments: List[Dict[str, Any]]) -> Tuple[str, Dict[str, List[str]]]:
     formatted = ""
+    contents_urls = defaultdict()
+
     for comment in comments:
         formatted += COMMENT_TEMPLATE.format(
             user=comment['user']['login'],
@@ -73,13 +79,14 @@ def generate_formatted_comments(comments: List[Dict[str, Any]]) -> str:
             html_url=comment['html_url'],
             body=comment['body'],
         )
-        download_images(comment['id'], comment['body'])
+        comment_id = f"{PurePath(comment['issue_url']).name}_{comment['id']}"
+        contents_urls[comment_id] = collect_content_urls(comment['body'])
 
-    return formatted
+    return formatted, contents_urls
 
 
-def generate_formatted_issue(issue: Dict[str, Any]) -> str:
-    formatted = ISSUE_TEMPLATE.format(
+def format_issue(issue: Dict[str, Any], comments: str) -> str:
+    return ISSUE_TEMPLATE.format(
             number=issue['number'],
             title=issue['title'],
             html_url=issue['html_url'],
@@ -88,91 +95,119 @@ def generate_formatted_issue(issue: Dict[str, Any]) -> str:
             author=issue['user']['login'],
             closed_at=issue['closed_at'] or '-',
             body=issue['body'],
-            comments=generate_formatted_comments(
-                download(issue['comments_url']).json()
-            ),
+            comments=comments,
         )
-    download_images(issue['id'], issue['body'])
-
-    return formatted
 
 
-def get_next_url(r: requests.models.Response) -> str:
-    if r.links.get('next'):
-        return r.links['next']['url']
+def collect_content_urls(string: str) -> List[str]:
+    image_urls = re.findall(IMAGE_URL_REGEX, string)  # type: List[str]
+    attachment_urls = re.findall(attachments_regex, string)  # type: List[str]
+
+    return image_urls + attachment_urls
+
+
+def serialize(issues: List[Dict[str, Any]]) -> Tuple[Dict[str, str], Dict[str, List[str]]]:
+    """
+    TODO: ここに説明
+
+    :param issues: ひとつの Issue を表す辞書のリスト
+    :return: 以下を保持する2カラムのタプル
+
+        * ファイル名を key に、Markdown 形式にフォーマットされた Issue と
+          そのIssue に紐づく Comments のテキストをvalue に持つ辞書
+        * Issue number もしくは {Issue number}_{Comment id} をキーに、
+          その Issue もしくは Comment に紐づくコンテンツの URL を value に持つ辞書
+    """
+    serialized = defaultdict()
+    contents_urls = defaultdict()
+
+    for issue in issues:
+        if issue.get('pull_request'):
+            # see: https://developer.github.com/v3/issues/#list-issues-for-a-repository
+            # `List issues for a repository` API の返却値には Issue と PR の両方が含まれるため、ここで PR を除外する
+            logger.info("Skipped #%s, because it is pull request.", issue['number'])
+            continue
+
+        logger.info("Processing issue #%s", issue['number'])
+
+        res = download(issue['comments_url'])
+        f, c = format_comments(res.json())
+
+        serialized[generate_filename(issue)] = format_issue(issue, f)
+
+        contents_urls[str(issue['number'])] = collect_content_urls(issue['body'])
+        contents_urls.update(c)
+
+    return serialized, contents_urls
+
+
+def output(issues: Dict[str, str]):
+    settings.ISSUES_DIR.mkdir(parents=True, exist_ok=True)
+    for filename, issue in issues.items():
+        with open(settings.ISSUES_DIR / filename, 'w', encoding="utf-8") as f:
+            f.write(issue)
+
+    logger.debug("%s issues were downloaded.", len(issues))
+
+
+def download_contents(content_urls: Dict[str, List[str]]):
+    count = 0
+    for content_id, urls in content_urls.items():
+        for url in urls:
+            logger.info("Downloading contents of issue #%s", content_id)
+            filepath = settings.CONTENTS_DIR / str(content_id) / PurePath(url).name
+            if filepath.exists():
+                continue
+
+            try:
+                res = download(url)
+            except requests.exceptions.HTTPError:
+                logger.warning("Failed downloading content. url: '%s'.", url, exc_info=True)
+                continue
+
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            with open(filepath, 'wb') as f:
+                f.write(res.content)
+                count += 1
+
+    logger.debug("%s contents were downloaded.", count)
+
+
+def get_next_url(res: requests.models.Response) -> str:
+    if res.links.get('next'):
+        return res.links['next']['url']
 
     return ""
-
-
-def fetch_issues(url: str, params: Dict[str, str] = None) -> Tuple[str, int]:
-    r = download(url, params)
-    count = 0
-
-    for issue in r.json():
-        if issue.get('pull_request'):
-            logger.info("Skip pull request #%s.", issue['number'])
-            continue
-
-        logger.info("Downloading issue #%s.", issue['number'])
-
-        text = generate_formatted_issue(issue)
-        filename = generate_filename(issue)
-        with open(OUTPUT_DIR / filename, 'w', encoding="utf-8") as f:
-            f.write(text)
-
-        count += 1
-
-    return get_next_url(r), count
-
-
-def download_images(id: int, body_str: str):
-    # * 画像を取って来たい
-    # * body 中に [image](url) あったらDLするみたいな
-    from PIL import Image
-    from io import BytesIO
-    import re
-    from pathlib import PurePath
-    import time
-
-    pattern = r"!\[image\]\((https://user-images.githubusercontent.com/[\w\-\./]+)\)"
-
-    m = re.findall(pattern, body_str)  # type: List[str]
-
-    for image_url in m:
-        # 画像をダウンロードする
-        r = download(image_url)
-        # image に変換
-        image = Image.open(BytesIO(r.content))
-        # 出力先ファイルパスを取得するよ
-        filepath = OUTPUT_IMAGE_DIR / str(id) / PurePath(image_url).name
-        if filepath.exists():
-            continue
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        # ローカルに保存する
-        image.save(filepath)
-        time.sleep(1.0)
 
 
 def main(repo_owner: str, repo_name: str, state: str):
     """
     TODO:
-        * 画像を取って来たい
+        * 画像も取得する、はオプションにしよう....
         * template をどうにかしたいような...
-        * log をつける
     """
-    logger.info("Start downloading Issues. repo_owner: '%s', repo_name: '%s', state: '%s'.", repo_owner, repo_name, state)
+    logger.info(
+        "Start downloading issues. repo_owner: '%s', repo_name: '%s', state: '%s'.",
+        repo_owner, repo_name, state
+    )
 
-    issue_url = GITHUB_ISSUE_URL.format(repo_owner=repo_owner, repo_name=repo_name)
+    issue_url = ISSUE_URL.format(repo_owner=repo_owner, repo_name=repo_name)
     params = {'state': state}
+
+    # TODO: ここどうなんだろう... `global` 使っているの、今まで見たことない....
+    global attachments_regex
+    attachments_regex = ATTACHMENTS_URL_REGEX.format(repo_owner=repo_owner, repo_name=repo_name)
+
     total = 0
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
     while issue_url:
-        issue_url, fetched_count = fetch_issues(issue_url, params)
-        total += fetched_count
-        logger.info("%s issues were downloaded.", total)
+        res = download(issue_url, params)
+        issues, content_urls = serialize(res.json())
+        output(issues)
+        download_contents(content_urls)
+        issue_url = get_next_url(res)
+        total += len(issues)
 
-    logger.info("Download of Issues complete. %s issues have been downloaded.", total)
+    logger.info("Completed downloading issues. %s issues have been downloaded.", total)
 
 
 if __name__ == '__main__':
