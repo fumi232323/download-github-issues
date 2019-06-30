@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 ISSUE_URL = 'https://api.github.com/repos/{repo_owner}/{repo_name}/issues'
 IMAGE_URL_REGEX = r"!\[.*?\]\((https://user-images.githubusercontent.com/[\w\-\./]+)\)"
 ATTACHMENTS_URL_REGEX = r"\[.*?\]\((https://github.com/{repo_owner}/{repo_name}/files/[\w\-\./]+)\)"
+attachments_regex = ""
 
 # File name to output issue
 OUTPUT_FILENAME = '{issue_number}_{issue_title}.md'
-attachments_regex = ""
 
 
 def download(
@@ -84,15 +84,16 @@ def collect_content_urls(string: str) -> List[str]:
 
 def serialize(issues: List[Dict[str, Any]]) -> Tuple[Dict[str, str], Dict[str, List[str]]]:
     """
-    TODO: ここに説明
+    API から取得した Issues and Comments をファイル出力用にフォーマットし、
+    また、Issues や Comments に添付されているコンテンツの URL を収集して返す。
 
     :param issues: ひとつの Issue を表す辞書のリスト
     :return: 以下を保持する2カラムのタプル
 
-        * ファイル名を key に、Markdown 形式にフォーマットされた Issue と
-          そのIssue に紐づく Comments のテキストをvalue に持つ辞書
-        * Issue number もしくは {Issue number}_{Comment id} をキーに、
-          その Issue もしくは Comment に紐づくコンテンツの URL を value に持つ辞書
+      #. ファイル名を key に、Markdown 形式にフォーマットされた Issue と
+         そのIssue に紐づく Comments のテキストをvalue に持つ辞書
+      #. Issue number もしくは {Issue number}_{Comment id} をキーに、
+         その Issue もしくは Comment に紐づくコンテンツの URL を value に持つ辞書
     """
     serialized = defaultdict()
     contents_urls = defaultdict()
@@ -133,6 +134,7 @@ def download_contents(content_urls: Dict[str, List[str]]):
             logger.info("Downloading contents of issue #%s", content_id)
             filepath = settings.CONTENTS_DIR / content_id / PurePath(url).name
             if filepath.exists():
+                # Do not download if already downloaded.
                 continue
 
             try:
