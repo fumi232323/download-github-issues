@@ -44,6 +44,6 @@ This command will download issues including comments from the specified GitHub r
 Options
 ^^^^^^^^
 
-:-s|--state <issue_state>: You can also specify the state of the issue if you like. You can choose from 'open', 'closed' and 'all'. The default is open.
+:-s|--state <issue_state>: You can also specify the state of the issue if you like. You can choose from ``open``, ``closed`` and ``all``. The default is ``open``.
 :-c|--contents: Specify this option if you also need to download images and attachments. Then output to ``./Issues/images``.
 
