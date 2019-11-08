@@ -105,15 +105,15 @@ def serialize(issues: List[Dict[str, Any]]) -> Tuple[Dict[str, str], Dict[str, L
             logger.info("Skipped #%s, because it is pull request.", issue['number'])
             continue
 
-        logger.info("Processing issue #%s", issue['number'])
+        logger.info("Downloading issue #%s", issue['number'])
 
         res = download(issue['comments_url'])
-        f, c = format_comments(res.json())
+        comments, cont_urls = format_comments(res.json())
 
-        serialized[generate_filename(issue)] = format_issue(issue, f)
+        serialized[generate_filename(issue)] = format_issue(issue, comments)
 
         contents_urls[str(issue['number'])] = collect_content_urls(issue['body'])
-        contents_urls.update(c)
+        contents_urls.update(cont_urls)
 
     return serialized, contents_urls
 
@@ -139,6 +139,8 @@ def download_contents(content_urls: Dict[str, List[str]]):
 
             try:
                 res = download(url)
+                import time
+                time.sleep(5)  # 待たないとfailするので
             except requests.exceptions.HTTPError:
                 logger.warning("Failed downloading content. url: '%s'.", url, exc_info=True)
                 continue
